@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import { Chess } from 'chess.js';
 
 const app = express();
 app.use(cors());
@@ -20,6 +21,13 @@ interface Player {
   id: string;
   name: string;
   score: number;
+}
+
+interface ChessRoom {
+  game: Chess;
+  whiteId: string | null;
+  blackId: string | null;
+  resigned: 'w' | 'b' | null; // who resigned (if anyone)
 }
 
 interface Room {
@@ -42,6 +50,7 @@ interface Room {
     choices: string[];
     intervalId?: any;
   };
+  chess?: ChessRoom;
 }
 
 const rooms = new Map<string, Room>();
@@ -50,6 +59,82 @@ const WORD_BANK = [
   'PIZZA', 'APPLE', 'HOUSE', 'CAR', 'CAT', 'DOG', 'SUN', 'TREE', 'BOAT',
   'PLANE', 'GUITAR', 'CLOCK', 'FISH', 'STAR', 'ROCKET', 'BURGER',
   'CAMERA', 'BIKE', 'PENCIL', 'BALL', 'BIRD', 'CHAIR', 'MOON', 'BOOK'
+  ,'TREASURE', 'ASTRONAUT TRAINING', 'CAT', 'SEESAW', 'JEALOUSY', 'BURP',
+  'CATERPILLAR', 'FLUTE', 'GRAVITY', 'CHEF', 'GHOST', 'SHIELD', 'ANATOMY'
+  , 'SUN', 'APOLOGY', 'SPATULA', 'FREEFALL', 'KEY', 'SADDLE', 'BURGLARY'
+  , 'LADDER', 'DNA STRAND', 'PANDA', 'HOURGLASS', 'LADYBUG', 'SHOVE', 'CHAOS'
+  , 'MIRROR', 'SHOE', 'RIPPLE EFFECT', 'DRAGON', 'PUPPET', 'FAST FORWARD'
+  , 'EAGLE', 'CRAMP', 'BOOMERANG', 'BICYCLE', 'MICROSCOPE', 'RAIN', 'MUSHROOM'
+  , 'CAR', 'DENT', 'HEARTBEAT', 'FOSSIL FUEL', 'PIRATE', 'POPCORN', 'SLINGSHOT'
+  , 'HITCHHIKER', 'SOCKS', 'CANDLE', 'CHECKMATE', 'WHALE', 'BACKFIRE', 'CHEESE'
+  , 'BEE', 'DREAMLAND', 'CHAIR', 'BALLOON', 'SNAKE', 'SPONGE', 'BETRAYAL', 'REINDEER'
+  , 'GLITCH', 'DOG', 'FURNITURE', 'TELESCOPE', 'KANGAROO', 'ECLIPSE', 'SHARK'
+  , 'BUBBLE', 'MOUSTACHE', 'AMNESIA', 'FLOWER', 'FENCE', 'GOLF', 'HYPNOSIS'
+  , 'EGG', 'CROWDED', 'BRUSH', 'CROSSWORD', 'CHERRY', 'NOSTALGIA', 'ROBOT'
+  , 'FIREWORKS', 'DOOR', 'DIPLOMAT', 'MONKEY', 'PILLOW', 'TIME MACHINE'
+  , 'ICEBERG', 'SHADOW PUPPET', 'CRAWL SPACE', 'TOASTER', 'PIZZA', 'DUCK'
+  , 'CORRUPTION', 'PENCIL', 'SANDWICH', 'EXCLUSION', 'ISLAND', 'FROST', 'PUDDLE'
+  , 'LION', 'ANESTHESIA', 'SKATEBOARD', 'AIRPLANE', 'CREEP', 'SATELLITE'
+  , 'COINCIDENCE', 'IGLOO', 'BREAD', 'BLINDFOLD', 'RADAR', 'TREE', 'GUILTY'
+  , 'FOOTPRINT', 'BARBECUE', 'BONE', 'DAYDREAM', 'MICROWAVE', 'CRAB', 'SWORD'
+  , 'TOOTHBRUSH', 'SUBMARINE', 'OCTOPUS', 'CACTUS', 'CAMPFIRE', 'CHOREOGRAPHY'
+  , 'BLENDER', 'STAPLER', 'PENGUIN', 'SPIDER', 'ROPE', 'NIGHTMARE', 'TRAFFIC LIGHT'
+  , 'SPOON', 'COW', 'BEACH', 'FORESHADOWING', 'JINX', 'KETTLE', 'PARACHUTE'
+  , 'LOCK', 'ANXIETY', 'BATTERY', 'INSPECTION', 'TICKET', 'SKELETON', 'FROSTBITE'
+  , 'SCISSORS', 'STAMP', 'SNOWMAN', 'HELMET', 'POSTCARD', 'POLLUTION', 'DEPRESSION'
+  , 'DRY ICE', 'PEANUT', 'BULLDOZER', 'JIGSAW', 'AEROBICS', 'BOREDOM', 'GLASS'
+  , 'PLUMBER', 'INVISIBILITY', 'COWBOY', 'TRUMPET', 'CLOVER', 'GOSSIP', 'BUSH'
+  , 'HURRICANE', 'FARM', 'UNDERCOVER', 'BASEBALL', 'STETHOSCOPE', 'CRAYON'
+  , 'TRUCK', 'GUITAR', 'FORK', 'EVAPORATION', 'HAIL', 'CELLPHONE', 'CHIMNEY'
+  , 'WAGON', 'VIRTUAL REALITY', 'SMILE', 'SINK', 'FROZEN', 'ARCHAEOLOGY'
+  , 'BLACKSMITH', 'SNAIL', 'LEMON', 'BOOBY TRAP', 'SWAN', 'HEADPHONES', 'BACKFLIP'
+  , 'COMPASS', 'COFFIN', 'PUMP', 'CUP', 'HOTDOG', 'EAVESDROP', 'FUGITIVE', 'SCREWDRIVER'
+  , 'DIAMOND', 'CORN MAZE', 'SEAL', 'CLIMAX', 'BRIDGE', 'GRIEF', 'CLAW', 'SURFING'
+  , 'MIRAGE', 'JELLYFISH', 'MOCKINGBIRD', 'SCORPION', 'LIPSTICK', 'BED'
+  , 'POCKET', 'FLAG', 'AFTERLIFE', 'CHESS', 'CENSORED', 'BRICK', 'CARPOOL'
+  , 'MAP', 'CLOWN', 'DOGHOUSE', 'RADIO', 'BUTTERFLY', 'BASKETBALL', 'CANOE'
+  , 'MINT', 'MUSEUM', 'CHALK', 'TENT', 'TURBULENCE', 'ZERO GRAVITY', 'BLIZZARD'
+  , 'HICCUP', 'BROKEN HEART', 'DESERT', 'BARN', 'SCARF', 'KNIFE', 'MELTDOWN', 'RACKET'
+  , 'TOOTH', 'LUGGAGE', 'FIRETRUCK', 'SOAP', 'CASTLE', 'WHEAT', 'MOON', 'AERIAL'
+  , 'PALM TREE', 'PANIC ATTACK', 'TRACTOR', 'BOTTLE', 'THERMOMETER'
+  , 'DINOSAUR', 'RABBIT', 'WORM', 'HOSE', 'SNOOZE', 'BOOK', 'RIVER', 'PANTS'
+  , 'SUITCASE', 'HEATWAVE', 'SATELLITE DISH', 'SPATULA', 'COOKIE', 'HIGH JUMP'
+  , 'SEESAW', 'FROG', 'LUNCHBOX', 'ECLIPSE', 'ANCHOR', 'BALL', 'GOLD'
+  , 'WINDMILL', 'RING', 'THIEF', 'BURGLAR', 'CAVE', 'PENCIL SHARPENER'
+  , 'WOLF', 'BEEHIVE', 'LIZARD', 'CORAL', 'POND', 'BAMBOO', 'ROOSTER'
+  , 'CHERRY BLOSSOM', 'STRAW', 'JELLY', 'VASE', 'BASKET', 'SHORTS', 'PARROT'
+  , 'DOLL', 'FAN', 'ZIPPER', 'GLOVES', 'PEARL', 'SLED', 'LADDER', 'SKIS'
+  , 'TUNNEL', 'HAMMER', 'SWING', 'CROWN', 'CHEST', 'COAT', 'BARREL', 'WHEEL'
+  , 'BENCH', 'BOOT', 'NEST', 'TURTLE', 'STARFISH', 'GOAT', 'DUST', 'SHIRT'
+  , 'PITCHFORK', 'WHEELBARROW', 'SADDLE', 'MOP', 'BUCKET', 'BROOM', 'PUMPKIN'
+  , 'DRILL', 'SHELL', 'WELL', 'BELL', 'LOG', 'TORCH', 'LEAF', 'ROCK', 'STICK'
+  , 'GRASS', 'FEATHER', 'MATCH', 'BRUSH', 'COMB', 'COIN', 'NOTEBOOK'
+  , 'PAPERCLIP', 'SCISSORS', 'PAINT', 'CANVAS', 'STAMP', 'ENVELOPE'
+  , 'MAILBOX', 'FLAGPOLE', 'CRANE', 'YACHT', 'FANTESY', 'TAXI', 'AMBULANCE'
+  , 'FIRE HYDRANT', 'STREETLIGHT', 'PARKING METER', 'SIGNPOST', 'SIDEWALK'
+  , 'CROSSWALK', 'BENCH', 'FOUNTAIN', 'MONUMENT', 'STATUE', 'PLAYGROUND'
+  , 'SANDBOX', 'SLIDE', 'CAROUSEL', 'ROLLERCOASTER', 'FERRIS WHEEL'
+  , 'TICKET BOOTH', 'POPCORN MACHINE', 'COTTON CANDY', 'HOT AIR BALLOON'
+  , 'BLIMP', 'HANG GLIDER', 'JETPACK', 'SPACESUIT', 'METEOR', 'COMET'
+  , 'GALAXY', 'NEBULA', 'CONSTELLATION', 'SOLAR PANEL', 'WIND TURBINE'
+  , 'DAM', 'FACTORY', 'WAREHOUSE', 'GREENHOUSE', 'BARN', 'SILO', 'WINDMILL'
+  , 'WATERMILL', 'LIGHTHOUSE', 'DOCK', 'PIER', 'BUOY', 'ANCHOR', 'HELM'
+  , 'MAST', 'SAIL', 'PADDLE', 'PORN', 'LIFEBUOY', 'LIFE JACKET', 'COMPASS'
+  , 'TREASURE CHEST', 'MAP', 'SPYGLASS', 'CANNON', 'CANNONBALL', 'FLAG'
+  , 'SWORD', 'SHIELD', 'SPEAR', 'BOW', 'ARROW', 'TARGET', 'QUIVER', 'ARMOR'
+  , 'HELMET', 'GAUNTLET', 'BOOTS', 'CAPE', 'CLOAK', 'MASK', 'WAND'
+  , 'STAFF', 'CRYSTAL BALL', 'POTION', 'CAULDRON', 'SPELLBOOK', 'SCROLL'
+  , 'AMULET', 'TALISMAN', 'RING', 'TIARA', 'SCEPTER', 'THRONE', 'GOBLET'
+  , 'CHALICE', 'HOURGLASS', 'SUNDIAL', 'METRONOME', 'STOPWATCH', 'CALENDAR'
+  , 'ALARM CLOCK', 'PENDULUM', 'COMPASS', 'PRISM', 'KALEIDOSCOPE', 'PERISCOPE'
+  , 'MAGNIFYING GLASS', 'BINOCULARS', 'TELESCOPE', 'MICROSCOPE', 'CAMERA'
+  , 'PROJECTOR', 'SCREEN', 'MONITOR', 'KEYBOARD', 'MOUSE', 'JOYSTICK'
+  , 'HEADPHONES', 'SPEAKER', 'MICROPHONE', 'RADIO', 'ANTENNA'
+  , 'WALKIE TALKIE', 'CASSETTE', 'VINYL RECORD', 'PHONOGRAPH', 'JUKEBOX'
+  , 'ACCORDION', 'BAGPIPES', 'BANJO', 'FUCK', 'CLARINET', 'CYMBALS'
+  , 'DRUM', 'FLUTE', 'HARP', 'LUTE', 'MANDOLIN', 'OBOE', 'ORGAN', 'PIANO'
+  , 'RECORDER', 'SAXOPHONE', 'TAMBOURINE', 'TRIANGLE', 'TROMBONE', 'TRUMPET'
+  , 'TUBA', 'UKULELE', 'VIOLIN', 'XYlOPHONE' 
 ];
 
 function getRandomWords(count = 3): string[] {
@@ -153,6 +238,121 @@ function startRoundTimer(roomCode: string) {
   }, 1000);
 }
 
+// ---------- Chess helpers ----------
+
+function newChessRoom(room: Room, prev?: ChessRoom): ChessRoom {
+  const ids = room.players.map(p => p.id);
+  let whiteId: string | null = ids[0] ?? null;
+  let blackId: string | null = ids[1] ?? null;
+
+  // Rematch: swap colors so the other player gets white
+  if (prev && prev.whiteId && prev.blackId && ids.includes(prev.whiteId) && ids.includes(prev.blackId)) {
+    whiteId = prev.blackId;
+    blackId = prev.whiteId;
+  }
+  return { game: new Chess(), whiteId, blackId, resigned: null };
+}
+
+// Make sure every player in the room has a seat (white / black)
+function seatChessPlayers(room: Room) {
+  const c = room.chess;
+  if (!c) return;
+  const ids = room.players.map(p => p.id);
+  if (c.whiteId && !ids.includes(c.whiteId)) c.whiteId = null;
+  if (c.blackId && !ids.includes(c.blackId)) c.blackId = null;
+  const free = ids.filter(id => id !== c.whiteId && id !== c.blackId);
+  if (!c.whiteId && free.length > 0) c.whiteId = free.shift()!;
+  if (!c.blackId && free.length > 0) c.blackId = free.shift()!;
+}
+
+// Everything the screens need to draw the board
+function buildChessState(room: Room) {
+  const c = room.chess!;
+  const g = c.game;
+  const nameOf = (id: string | null) => room.players.find(p => p.id === id)?.name ?? null;
+
+  const history = g.history({ verbose: true });
+  const last = history.length > 0 ? history[history.length - 1] : null;
+
+  const capturedByWhite: string[] = [];
+  const capturedByBlack: string[] = [];
+  for (const m of history) {
+    if (m.captured) {
+      if (m.color === 'w') capturedByWhite.push(m.captured);
+      else capturedByBlack.push(m.captured);
+    }
+  }
+
+  let status: 'waiting' | 'playing' | 'checkmate' | 'stalemate' | 'draw' | 'resigned' = 'playing';
+  let winner: 'w' | 'b' | null = null;
+  let reason = '';
+
+  if (c.resigned) {
+    status = 'resigned';
+    winner = c.resigned === 'w' ? 'b' : 'w';
+    reason = `${c.resigned === 'w' ? 'White' : 'Black'} resigned`;
+  } else if (g.isCheckmate()) {
+    status = 'checkmate';
+    winner = g.turn() === 'w' ? 'b' : 'w';
+    reason = 'Checkmate';
+  } else if (g.isStalemate()) {
+    status = 'stalemate';
+    reason = 'Stalemate';
+  } else if (g.isDraw()) {
+    status = 'draw';
+    reason = g.isInsufficientMaterial()
+      ? 'Not enough pieces to win'
+      : g.isThreefoldRepetition()
+        ? 'Same position 3 times'
+        : '50-move rule';
+  } else if (!c.whiteId || !c.blackId) {
+    status = 'waiting';
+  }
+
+  // Which squares each piece may move to (only for the side whose turn it is)
+  const legalMoves: Record<string, { to: string; promotion: boolean; capture: boolean }[]> = {};
+  if (status === 'playing') {
+    for (const m of g.moves({ verbose: true })) {
+      if (!legalMoves[m.from]) legalMoves[m.from] = [];
+      if (!legalMoves[m.from].some(x => x.to === m.to)) {
+        legalMoves[m.from].push({
+          to: m.to,
+          promotion: !!m.promotion,
+          capture: !!m.captured || m.flags.includes('e')
+        });
+      }
+    }
+  }
+
+  return {
+    fen: g.fen(),
+    turn: g.turn(),
+    white: { id: c.whiteId, name: nameOf(c.whiteId) },
+    black: { id: c.blackId, name: nameOf(c.blackId) },
+    lastMove: last
+      ? {
+          from: last.from,
+          to: last.to,
+          san: last.san,
+          color: last.color,
+          piece: last.piece,
+          captured: last.captured ?? null,
+          flags: last.flags,
+          promotion: last.promotion ?? null
+        }
+      : null,
+    moves: history.map(m => m.san),
+    moveCount: history.length,
+    inCheck: g.inCheck(),
+    status,
+    winner,
+    reason,
+    legalMoves,
+    capturedByWhite,
+    capturedByBlack
+  };
+}
+
 // ---------- Socket events ----------
 
 io.on('connection', (socket) => {
@@ -216,6 +416,13 @@ io.on('connection', (socket) => {
     if (game !== 'drawing') {
       if (room.drawingState.intervalId) clearInterval(room.drawingState.intervalId);
       room.drawingState = freshDrawingState();
+    }
+
+    // Chess: start a fresh game when chess is picked, forget it otherwise.
+    if (game === 'chess') {
+      room.chess = newChessRoom(room);
+    } else {
+      delete room.chess;
     }
 
     io.to(code).emit('room:gameStarted', { game });
@@ -312,6 +519,72 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ---------- Chess ----------
+
+  // Called when the chess screen opens
+  socket.on('chess:join', ({ roomCode }) => {
+    const code = roomCode?.trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room) return socket.emit('room:error', { message: 'Room not found. Create a new room.' });
+
+    socket.join(code);
+    if (!room.chess) room.chess = newChessRoom(room);
+    seatChessPlayers(room);
+    io.to(code).emit('chess:state', buildChessState(room));
+  });
+
+  socket.on('chess:move', ({ roomCode, from, to, promotion }) => {
+    const code = roomCode?.trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room || !room.chess) return;
+    if (typeof from !== 'string' || typeof to !== 'string') return;
+
+    const c = room.chess;
+    if (buildChessState(room).status !== 'playing') return;
+
+    // Only the player whose turn it is may move
+    const turnId = c.game.turn() === 'w' ? c.whiteId : c.blackId;
+    if (socket.id !== turnId) return;
+
+    const attempt: { from: string; to: string; promotion?: string } = { from, to };
+    if (typeof promotion === 'string') attempt.promotion = promotion;
+
+    try {
+      c.game.move(attempt);
+    } catch {
+      // Illegal move: ignore it. Sending the real board below fixes the screen.
+    }
+    io.to(code).emit('chess:state', buildChessState(room));
+  });
+
+  socket.on('chess:resign', ({ roomCode }) => {
+    const code = roomCode?.trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room || !room.chess) return;
+
+    const c = room.chess;
+    if (buildChessState(room).status !== 'playing') return;
+
+    if (socket.id === c.whiteId) c.resigned = 'w';
+    else if (socket.id === c.blackId) c.resigned = 'b';
+    else return;
+
+    io.to(code).emit('chess:state', buildChessState(room));
+  });
+
+  socket.on('chess:rematch', ({ roomCode }) => {
+    const code = roomCode?.trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room || !room.chess) return;
+
+    const status = buildChessState(room).status;
+    if (status === 'playing' || status === 'waiting') return; // only after a game ended
+
+    room.chess = newChessRoom(room, room.chess);
+    seatChessPlayers(room);
+    io.to(code).emit('chess:state', buildChessState(room));
+  });
+
   // ---------- Tic Tac Toe ----------
 
   socket.on('game:move', ({ roomCode, index }) => {
@@ -375,6 +648,12 @@ io.on('connection', (socket) => {
       }
 
       io.to(code).emit('room:updated', { players: room.players });
+
+      // Tell the chess screen that someone left
+      if (room.chess) {
+        seatChessPlayers(room);
+        io.to(code).emit('chess:state', buildChessState(room));
+      }
 
       // If the drawer left mid-game, move on to the next drawer.
       if (wasDrawer && room.activeGame === 'drawing' && room.drawingState.phase !== 'idle') {

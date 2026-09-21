@@ -4,6 +4,7 @@ import { socket } from '../services/socket';
 import { Copy, Check, Gamepad2 } from 'lucide-react';
 import TicTacToe from '../components/TicTacToe';
 import GuessDrawing from '../components/GuessDrawing';
+import ChessGame from '../components/ChessGame';
 
 interface Player {
   id: string;
@@ -47,8 +48,18 @@ export default function Room() {
     }
   };
 
+  const gameButtonStyle = {
+    padding: '24px',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    border: '1px solid rgba(255,255,255,0.2)',
+    background: '#1e293b',
+    color: '#fff',
+    textAlign: 'center' as const
+  };
+
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px', textAlign: 'center' }}>
+    <div style={{ maxWidth: activeGame ? '1150px' : '800px', margin: '0 auto', padding: '24px', textAlign: 'center' }}>
       <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '24px', color: '#818cf8' }}>DUELSPACE</h1>
 
       {!activeGame ? (
@@ -86,15 +97,7 @@ export default function Room() {
               type="button"
               onClick={() => selectGame('tictactoe')}
               className="glass-panel"
-              style={{
-                padding: '24px',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: '#1e293b',
-                color: '#fff',
-                textAlign: 'center'
-              }}
+              style={gameButtonStyle}
             >
               <h4 style={{ margin: '0 0 8px 0', fontSize: '1.25rem' }}>Tic Tac Toe</h4>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.875rem' }}>Classic 3x3 turn duel</p>
@@ -104,18 +107,20 @@ export default function Room() {
               type="button"
               onClick={() => selectGame('drawing')}
               className="glass-panel"
-              style={{
-                padding: '24px',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: '#1e293b',
-                color: '#fff',
-                textAlign: 'center'
-              }}
+              style={gameButtonStyle}
             >
               <h4 style={{ margin: '0 0 8px 0', fontSize: '1.25rem' }}>Guess the Drawing</h4>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.875rem' }}>Real-time drawing & guessing</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => selectGame('chess')}
+              className="glass-panel"
+              style={{ ...gameButtonStyle, gridColumn: '1 / -1' }}
+            >
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '1.25rem' }}>♞ Chess</h4>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.875rem' }}>Full chess rules with smooth animations</p>
             </button>
           </div>
         </div>
@@ -129,6 +134,7 @@ export default function Room() {
           </button>
           {activeGame === 'tictactoe' && <TicTacToe roomCode={roomId!} players={players} />}
           {activeGame === 'drawing' && <GuessDrawing roomCode={roomId!} players={players} />}
+          {activeGame === 'chess' && <ChessGame roomCode={roomId!} />}
         </div>
       )}
     </div>
